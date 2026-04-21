@@ -102,6 +102,7 @@ const App: React.FC = () => {
   const [activeMode, setActiveMode] = useState<StudioMode>(StudioMode.VIDEO);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(() => {
     // ভার্সন চেকিং এবং সেশন প্রোটেকশন
@@ -233,6 +234,8 @@ const App: React.FC = () => {
         <Sidebar 
           isOpen={isSidebarOpen} 
           toggle={() => setIsSidebarOpen(!isSidebarOpen)} 
+          isMobileOpen={isMobileMenuOpen}
+          closeMobile={() => setIsMobileMenuOpen(false)}
           activeMode={activeMode} 
           setActiveMode={setActiveMode} 
           lang={user.language as any} 
@@ -247,6 +250,7 @@ const App: React.FC = () => {
             setLanguage={(l) => setUser({...user, language: l})} 
             onElevate={handleElevate} 
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+            onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             announcement={siteConfig.globalAnnouncement} 
           />
           
