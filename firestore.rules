@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- HELPER PRIMITIVES ---
+    
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // Primary Bootstrapped Admin
+      return isSignedIn() && (
+        request.auth.token.email == 'prodyutadhikari99@gmail.com' ||
+        // Secondary check against user document (Costly but necessary for delegated admins)
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- VALIDATION BLUEPRINTS ---
+
+    function isValidUser(data) {
+      return data.size() >= 2 &&
+        data.email is string && data.email.size() <= 150 &&
+        data.credits is int &&
+        (data.get('name', 'User') is string && data.get('name', 'User').size() <= 100) &&
+        (data.get('avatar', 'none') is string) &&
+        (data.get('role', 'User') in ['User', 'Creator', 'admin']) &&
+        (data.get('plan', 'Free') in ['Free', 'Micro', 'Student', 'Individual', 'Creator', 'Studio', 'Enterprise']) &&
+        (data.get('studentVerificationStatus', 'none') in ['none', 'pending', 'verified', 'rejected']) &&
+        (data.get('isBlocked', false) is bool);
+    }
+
+    function isValidWithdrawalRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'amount', 'status', 'method', 'details', 'createdAt']) &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.amount is number && data.amount > 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.method in ['Bkash', 'Nagad', 'Rocket'] &&
+             data.details is string && data.details.size() <= 300 &&
+             data.createdAt is int;
+    }
+
+    // --- COLLECTION MATCHES ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      // Document Creation: Only during registration, user sets initial safe values
+      allow create: if isOwner(userId) && isValidUser(incoming()) &&
+        isValidId(userId) &&
+        incoming().credits == 0 &&
+        incoming().revenue == 0 &&
+        incoming().role == 'User' &&
+        incoming().isBlocked == false &&
+        incoming().studentVerificationStatus == 'none';
+
+      // Updates: Tiered logic
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        // Admin: Full control for management
+        (isAdmin() && isValidUser(incoming())) ||
+        
+        // User: Limited profile updates
+        (isOwner(userId) && !existing().get('isBlocked', false) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'language', 'avatar', 'studentVerificationStatus']) &&
+         // User can only set verification to pending
+         (incoming().get('studentVerificationStatus', 'none') == 'pending' || incoming().studentVerificationStatus == existing().studentVerificationStatus) &&
+         isValidUser(incoming()))
+      );
+
+      // VPS Sub-collection
+      match /vps/{vpsId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /withdrawal_requests/{requestId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        (isAdmin()) || 
+        (resource.data.userId == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() && 
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        isValidWithdrawalRequest(incoming()) &&
+        isValidId(requestId) &&
+        // Check if user has enough balance (requires fetching user doc)
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.revenue >= incoming().amount;
+
+      allow update: if isAdmin() &&
+        isValidWithdrawalRequest(incoming()) &&
+        // Only allow status change from pending to approved/rejected
+        existing().status == 'pending' &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+
+      allow delete: if isAdmin() && existing().status != 'approved';
+    }
+
+    match /system/connection_test {
+      allow read: if isSignedIn();
+    }
+  }
+}

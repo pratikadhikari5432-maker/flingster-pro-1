@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with credits and settings",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "credits": { "type": "integer" },
+        "revenue": { "type": "number" },
+        "language": { "type": "string" },
+        "plan": { "type": "string", "enum": ["Free", "Micro", "Student", "Individual", "Creator", "Studio", "Enterprise"] },
+        "role": { "type": "string", "enum": ["User", "Creator", "admin"] },
+        "studentVerificationStatus": { "type": "string", "enum": ["none", "pending", "verified", "rejected"] },
+        "isBlocked": { "type": "boolean" }
+      },
+      "required": ["email", "credits"]
+    },
+    "WithdrawalRequest": {
+      "title": "Withdrawal Request",
+      "description": "User request to withdraw funds",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "userId", "amount", "status"]
+    },
+    "VPS": {
+      "title": "VPS Node",
+      "description": "A remote VPS node for rendering",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ip": { "type": "string" },
+        "username": { "type": "string" },
+        "provider": { "type": "string" },
+        "status": { "type": "string" },
+        "hasVideoEngine": { "type": "boolean" },
+        "lastChecked": { "type": "integer" }
+      },
+      "required": ["id", "ip", "username"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/users/{userId}/vps/{vpsId}": {
+      "schema": "VPS",
+      "description": "User's connected VPS nodes"
+    },
+    "/withdrawal_requests/{requestId}": {
+      "schema": "WithdrawalRequest",
+      "description": "Financial withdrawal requests"
+    }
+  }
+}

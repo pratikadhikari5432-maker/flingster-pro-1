@@ -1,0 +1,8 @@
+{
+  "name": "P.M Academy",
+  "description": "A professional learning hub for creative arts, video production, and industrial skills.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
