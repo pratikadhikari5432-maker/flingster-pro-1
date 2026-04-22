@@ -5,8 +5,10 @@ import axios from "axios";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 import { NodeSSH } from "node-ssh";
+
+// Clear vite top level import
+// import { createServer as createViteServer } from "vite";
 
 // --- MIDDLEWARE ---
 const __filename = fileURLToPath(import.meta.url);
@@ -202,7 +204,8 @@ async function startServer() {
 
   // --- VITE MIDDLEWARE ---
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    const { createServer } = await import("vite");
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
